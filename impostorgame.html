@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2 Impostor Game</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #000; color: #fff; text-align: center; padding: 20px; }
+        .card { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #333; margin-top: 20px; }
+        input { padding: 15px; width: 80%; border-radius: 10px; border: 1px solid #444; background: #222; color: #fff; font-size: 18px; margin-bottom: 10px; }
+        button { padding: 15px 25px; border-radius: 10px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-add { background: #6c5ce7; color: white; margin-bottom: 20px; }
+        .btn-start { background: #ff4757; color: white; width: 100%; margin-top: 10px; }
+        .btn-action { background: #2ed573; color: white; width: 100%; margin-top: 20px; }
+        .btn-reset { background: #444; color: #ccc; width: 100%; margin-top: 15px; font-size: 14px; }
+        .hidden { display: none; }
+        .player-tag { display: inline-block; background: #333; padding: 5px 15px; border-radius: 20px; margin: 5px; font-size: 14px; }
+        .remove-btn { color: #ff4757; margin-left: 8px; cursor: pointer; font-weight: bold; }
+        .word-reveal { font-size: 28px; font-weight: bold; color: #ff9f43; margin: 30px 0; min-height: 40px; text-transform: uppercase; letter-spacing: 2px; }
+        .impostor-text { color: #ff4757; font-size: 32px; }
+        #wordCounter { font-size: 12px; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>C2 Impostor Game 😜</h1>
+
+    <div id="setup">
+        <p>Add your friends to begin:</p>
+        <input type="text" id="playerName" placeholder="Player Name" onkeypress="if(event.key==='Enter') addPlayer()">
+        <br>
+        <button class="btn-add" onclick="addPlayer()">+ ADD PLAYER</button>
+        <div id="playerList"></div>
+        <button id="startBtn" class="btn-start hidden" onclick="startGame()">START GAME</button>
+    </div>
+
+    <div id="game" class="hidden">
+        <p id="instruction">Pass the phone to:</p>
+        <h2 id="currentPlayer" style="font-size: 40px; margin: 10px 0;"></h2>
+        <div class="card">
+            <div id="wordDisplay" class="word-reveal">????</div>
+            <button id="actionBtn" class="btn-action" onclick="handleTurn()">REVEAL MY WORD</button>
+        </div>
+    </div>
+
+    <div id="endScreen" class="hidden">
+        <h2>Everyone knows their role!</h2>
+        <p>Start describing the word one by one.</p>
+        <div class="card">
+            <button class="btn-start" onclick="playAgain()">PLAY AGAIN (Same Players)</button>
+            <button class="btn-reset" onclick="location.reload()">RESET ALL</button>
+            <div id="wordCounter"></div>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let usedWords = [];
+        let words = [
+            "Handcuffs", "Library", "Queen", "Moon", "Trump", "Rain", "KFC", "Fries", 
+            "Spider-Man", "Champagne", "Chef", "Hot Tub", "Condom", "Tattoo", "Vegas", 
+            "Guitar", "The U1", "Barack Obama", "VK", "Snus", "Buzzball", "Cinema", 
+            "Bakery", "Elephant", "Pasta", "Foreplay", "Posh", "Wish", "Jason Donervan", 
+            "Daisy's", "Lion", "Sainsbury's", "Hummus", "Red Bull", "Apple", "Freshers", 
+            "Pres", "Shrek", "Bonnie Blue", "Labour", "Birds", "Netflix"
+        ];
+        
+        let impostorIndex, secretWord, turn = 0, state = "REVEAL";
+
+        function addPlayer() {
+            let input = document.getElementById('playerName');
+            let name = input.value.trim();
+            if (name !== "") {
+                players.push(name);
+                renderPlayers();
+                input.value = "";
+                input.focus();
+            }
+        }
+
+        function removePlayer(index) {
+            players.splice(index, 1);
+            renderPlayers();
+        }
+
+        function renderPlayers() {
+            let listDiv = document.getElementById('playerList');
+            listDiv.innerHTML = "";
+            players.forEach((player, index) => {
+                listDiv.innerHTML += `<span class="player-tag">${player}<span class="remove-btn" onclick="removePlayer(${index})">×</span></span>`;
+            });
+            let startBtn = document.getElementById('startBtn');
+            if (players.length >= 3) startBtn.classList.remove('hidden');
+            else startBtn.classList.add('hidden');
+        }
+
+        function startGame() {
+            // Check if we need to reset the word list
+            if (words.length === 0) {
+                words = [...usedWords];
+                usedWords = [];
+                alert("All words used! Re-shuffling the deck...");
+            }
+
+            // Pick random word and REMOVE it from the list
+            let randomIndex = Math.floor(Math.random() * words.length);
+            secretWord = words.splice(randomIndex, 1)[0];
+            usedWords.push(secretWord);
+
+            // Pick random impostor
+            impostorIndex = Math.floor(Math.random() * players.length);
+            
+            turn = 0;
+            state = "REVEAL";
+            document.getElementById('setup').classList.add('hidden');
+            document.getElementById('endScreen').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+            setupTurn();
+        }
+
+        function playAgain() {
+            startGame();
+        }
+
+        function setupTurn() {
+            if (turn >= players.length) {
+                document.getElementById('game').classList.add('hidden');
+                document.getElementById('endScreen').classList.remove('hidden');
+                document.getElementById('wordCounter').innerText = `Words remaining: ${words.length}`;
+                return;
+            }
+            document.getElementById('instruction').innerText = "Pass the phone to:";
+            document.getElementById('currentPlayer').innerText = players[turn];
+            document.getElementById('wordDisplay').innerText = "????";
+            document.getElementById('wordDisplay').classList.remove('impostor-text');
+            document.getElementById('actionBtn').innerText = "REVEAL MY WORD";
+            state = "REVEAL";
+        }
+
+        function handleTurn() {
+            let display = document.getElementById('wordDisplay');
+            let actionBtn = document.getElementById('actionBtn');
+            let instruction = document.getElementById('instruction');
+
+            if (state === "REVEAL") {
+                if (turn === impostorIndex) {
+                    display.innerText = "⚠️ YOU ARE THE IMPOSTOR";
+                    display.classList.add('impostor-text');
+                } else {
+                    display.innerText = secretWord;
+                }
+                instruction.innerText = "Memorize it and hide!";
+                actionBtn.innerText = "OK, HIDE IT";
+                state = "NEXT";
+            } else {
+                turn++;
+                setupTurn();
+            }
+        }
+    </script>
+</body>
+</html>
