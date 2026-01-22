@@ -8,6 +8,7 @@
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #000; color: #fff; text-align: center; padding: 20px; }
         .card { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #333; margin-top: 20px; }
         input { padding: 15px; width: 80%; border-radius: 10px; border: 1px solid #444; background: #222; color: #fff; font-size: 18px; margin-bottom: 10px; }
+        .setting-input { width: 60px; text-align: center; display: inline-block; margin-left: 10px; }
         button { padding: 15px 25px; border-radius: 10px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-add { background: #6c5ce7; color: white; margin-bottom: 20px; }
         .btn-start { background: #ff4757; color: white; width: 100%; margin-top: 10px; }
@@ -19,6 +20,7 @@
         .word-reveal { font-size: 28px; font-weight: bold; color: #ff9f43; margin: 30px 0; min-height: 40px; text-transform: uppercase; letter-spacing: 2px; }
         .impostor-text { color: #ff4757; font-size: 32px; }
         #wordCounter { font-size: 12px; color: #666; margin-top: 10px; }
+        .settings-label { margin-top: 15px; color: #aaa; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -30,8 +32,15 @@
         <input type="text" id="playerName" placeholder="Player Name" onkeypress="if(event.key==='Enter') addPlayer()">
         <br>
         <button class="btn-add" onclick="addPlayer()">+ ADD PLAYER</button>
+        
         <div id="playerList"></div>
-        <button id="startBtn" class="btn-start hidden" onclick="startGame()">START GAME</button>
+
+        <div id="gameSettings" class="hidden">
+            <div class="settings-label">Number of Impostors:
+                <input type="number" id="impostorCount" class="setting-input" value="1" min="1">
+            </div>
+            <button id="startBtn" class="btn-start" onclick="startGame()">START GAME</button>
+        </div>
     </div>
 
     <div id="game" class="hidden">
@@ -56,6 +65,7 @@
     <script>
         let players = [];
         let usedWords = [];
+        let impostorIndices = []; // Now an array to hold multiple indices
         let words = [
             "Handcuffs", "Library", "Queen", "Moon", "Trump", "Rain", "KFC", "Fries", 
             "Spider-Man", "Champagne", "Chef", "Hot Tub", "Condom", "Tattoo", "Vegas", 
@@ -65,7 +75,7 @@
             "Pres", "Shrek", "Bonnie Blue", "Labour", "Birds", "Netflix"
         ];
         
-        let impostorIndex, secretWord, turn = 0, state = "REVEAL";
+        let secretWord, turn = 0, state = "REVEAL";
 
         function addPlayer() {
             let input = document.getElementById('playerName');
@@ -89,26 +99,44 @@
             players.forEach((player, index) => {
                 listDiv.innerHTML += `<span class="player-tag">${player}<span class="remove-btn" onclick="removePlayer(${index})">×</span></span>`;
             });
-            let startBtn = document.getElementById('startBtn');
-            if (players.length >= 3) startBtn.classList.remove('hidden');
-            else startBtn.classList.add('hidden');
+            
+            let settingsDiv = document.getElementById('gameSettings');
+            let impInput = document.getElementById('impostorCount');
+            
+            if (players.length >= 3) {
+                settingsDiv.classList.remove('hidden');
+                // Cap the impostor count to players - 1
+                impInput.max = players.length - 1;
+            } else {
+                settingsDiv.classList.add('hidden');
+            }
         }
 
         function startGame() {
-            // Check if we need to reset the word list
+            let impRequest = parseInt(document.getElementById('impostorCount').value);
+            
+            // Safety check: ensure at least one citizen remains
+            if (impRequest >= players.length) {
+                alert("You need at least one citizen! Lower the impostor count.");
+                return;
+            }
+
             if (words.length === 0) {
                 words = [...usedWords];
                 usedWords = [];
                 alert("All words used! Re-shuffling the deck...");
             }
 
-            // Pick random word and REMOVE it from the list
             let randomIndex = Math.floor(Math.random() * words.length);
             secretWord = words.splice(randomIndex, 1)[0];
             usedWords.push(secretWord);
 
-            // Pick random impostor
-            impostorIndex = Math.floor(Math.random() * players.length);
+            // PICK MULTIPLE RANDOM IMPOSTORS
+            impostorIndices = [];
+            while(impostorIndices.length < impRequest) {
+                let r = Math.floor(Math.random() * players.length);
+                if(impostorIndices.indexOf(r) === -1) impostorIndices.push(r);
+            }
             
             turn = 0;
             state = "REVEAL";
@@ -143,7 +171,8 @@
             let instruction = document.getElementById('instruction');
 
             if (state === "REVEAL") {
-                if (turn === impostorIndex) {
+                // Check if the current player's index is in our list of impostors
+                if (impostorIndices.includes(turn)) {
                     display.innerText = "⚠️ YOU ARE THE IMPOSTOR";
                     display.classList.add('impostor-text');
                 } else {
